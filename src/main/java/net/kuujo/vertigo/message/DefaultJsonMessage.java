@@ -95,42 +95,42 @@ public class DefaultJsonMessage implements JsonMessage {
   }
 
   @Override
-  public String id() {
+  public final String id() {
     return body.getString("id");
   }
 
   @Override
-  public String source() {
+  public final String source() {
     return body.getString("source");
   }
 
   @Override
-  public String parent() {
+  public final String parent() {
     return body.getString("parent");
   }
 
   @Override
-  public String ancestor() {
+  public final String ancestor() {
     return body.getString("ancestor");
   }
 
   @Override
-  public String auditor() {
+  public final String auditor() {
     return body.getString("auditor");
   }
 
   @Override
-  public JsonObject body() {
+  public final JsonObject body() {
     return body.getObject("body");
   }
 
   @Override
-  public String tag() {
+  public final String tag() {
     return body.getString("tag");
   }
 
   @Override
-  public JsonMessage createChild() {
+  public final JsonMessage createChild() {
     JsonObject newMessage = this.body.copy();
     if (!newMessage.getFieldNames().contains("ancestor")) {
       newMessage.putString("ancestor", this.body.getString("id"));
@@ -141,7 +141,7 @@ public class DefaultJsonMessage implements JsonMessage {
   }
 
   @Override
-  public JsonMessage createChild(JsonObject body) {
+  public final JsonMessage createChild(JsonObject body) {
     JsonObject newMessage = this.body.copy();
     if (!newMessage.getFieldNames().contains("ancestor")) {
       newMessage.putString("ancestor", this.body.getString("id"));
@@ -153,7 +153,7 @@ public class DefaultJsonMessage implements JsonMessage {
   }
 
   @Override
-  public JsonMessage createChild(JsonObject body, String tag) {
+  public final JsonMessage createChild(JsonObject body, String tag) {
     JsonObject newMessage = this.body.copy();
     if (!newMessage.getFieldNames().contains("ancestor")) {
       newMessage.putString("ancestor", this.body.getString("id"));
@@ -166,7 +166,7 @@ public class DefaultJsonMessage implements JsonMessage {
   }
 
   @Override
-  public JsonMessage copy() {
+  public final JsonMessage copy() {
     return new DefaultJsonMessage(body.copy().putString("id", createUniqueId()));
   }
 
