@@ -32,7 +32,7 @@ public class DefaultStreamExecutor extends AbstractExecutor<StreamExecutor> impl
   private Handler<Void> drainHandler;
   private boolean paused;
 
-  protected DefaultStreamExecutor(Vertx vertx, Container container, InstanceContext context) {
+  public DefaultStreamExecutor(Vertx vertx, Container container, InstanceContext context) {
     super(vertx, container, context);
   }
 

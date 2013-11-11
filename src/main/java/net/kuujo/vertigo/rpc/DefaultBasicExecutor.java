@@ -27,7 +27,7 @@ import org.vertx.java.platform.Container;
  */
 public class DefaultBasicExecutor extends AbstractExecutor<BasicExecutor> implements BasicExecutor {
 
-  protected DefaultBasicExecutor(Vertx vertx, Container container, InstanceContext context) {
+  public DefaultBasicExecutor(Vertx vertx, Container container, InstanceContext context) {
     super(vertx, container, context);
   }
 

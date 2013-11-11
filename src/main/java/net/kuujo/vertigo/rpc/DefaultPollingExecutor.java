@@ -37,7 +37,7 @@ public class DefaultPollingExecutor extends AbstractExecutor<PollingExecutor> im
   private Handler<PollingExecutor> executeHandler;
   private boolean executed;
 
-  protected DefaultPollingExecutor(Vertx vertx, Container container, InstanceContext context) {
+  public DefaultPollingExecutor(Vertx vertx, Container container, InstanceContext context) {
     super(vertx, container, context);
   }
 
