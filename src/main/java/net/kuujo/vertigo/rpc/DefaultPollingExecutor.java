@@ -27,33 +27,22 @@ import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.platform.Container;
 
 /**
- * A default polling executor implementation.
+ * A default {@link PollingExecutor} implementation.
  *
  * @author Jordan Halterman
  */
 public class DefaultPollingExecutor extends AbstractExecutor<PollingExecutor> implements PollingExecutor {
+  private static final long DEFAULT_EXECUTE_DELAY = 100;
+  private long executeDelay = DEFAULT_EXECUTE_DELAY;
   private Handler<PollingExecutor> executeHandler;
-  private long executeDelay = 100;
   private boolean executed;
 
-  public DefaultPollingExecutor(Vertx vertx, Container container, InstanceContext context) {
+  protected DefaultPollingExecutor(Vertx vertx, Container container, InstanceContext context) {
     super(vertx, container, context);
   }
 
   @Override
-  public PollingExecutor start() {
-    return super.start(new Handler<AsyncResult<PollingExecutor>>() {
-      @Override
-      public void handle(AsyncResult<PollingExecutor> result) {
-        if (result.succeeded()) {
-          recursiveFeed();
-        }
-      }
-    });
-  }
-
-  @Override
-  public PollingExecutor start(Handler<AsyncResult<PollingExecutor>> doneHandler) {
+  public PollingExecutor start(Handler<AsyncResult<PollingExecutor>> doneHandler){
     final Future<PollingExecutor> future = new DefaultFutureResult<PollingExecutor>().setHandler(doneHandler);
     return super.start(new Handler<AsyncResult<PollingExecutor>>() {
       @Override
@@ -62,51 +51,42 @@ public class DefaultPollingExecutor extends AbstractExecutor<PollingExecutor> im
           future.setFailure(result.cause());
         }
         else {
-          recursiveFeed();
           future.setResult(result.result());
+          recursiveExecute();
         }
       }
     });
   }
 
-  /**
-   * Schedules a feed.
-   */
-  private void scheduleFeed() {
-    vertx.setTimer(executeDelay, new Handler<Long>() {
-      @Override
-      public void handle(Long timerID) {
-        recursiveFeed();
-      }
-    });
-  }
-
-  /**
-   * Recursively invokes the feed handler.
-   * If the feed handler is invoked and no messages are fed from the handler,
-   * a timer is set to restart the feed in the future.
-   */
-  private void recursiveFeed() {
-    executed = true;
-    while (executed && !queue.full()) {
-      executed = false;
-      doFeed();
+  private Handler<Long> timerHandler = new Handler<Long>() {
+    @Override
+    public void handle(Long timerId) {
+      recursiveExecute();
     }
-    scheduleFeed();
-  }
+  };
 
   /**
-   * Invokes the feed handler.
+   * Recursively calls the execute handler, rescheduling as necessary.
    */
-  private void doFeed() {
-    if (executeHandler != null) {
+  private void recursiveExecute() {
+    if (executeHandler == null) {
+      return;
+    }
+
+    // If the execute handler emits a message then continue the iteration, otherwise
+    // reschedule the next execute handler call for executeDelay milliseconds.
+    executed = true;
+    while (!queueFull() && executed) {
+      executed = false;
       executeHandler.handle(this);
     }
+
+    vertx.setTimer(executeDelay, timerHandler);
   }
 
   @Override
   public PollingExecutor setExecuteDelay(long delay) {
-    executeDelay = delay;
+    this.executeDelay = delay;
     return this;
   }
 
@@ -116,21 +96,21 @@ public class DefaultPollingExecutor extends AbstractExecutor<PollingExecutor> im
   }
 
   @Override
-  public PollingExecutor executeHandler(Handler<PollingExecutor> handler) {
-    executeHandler = handler;
+  public PollingExecutor executeHandler(Handler<PollingExecutor> executeHandler) {
+    this.executeHandler = executeHandler;
     return this;
   }
 
   @Override
-  public String execute(JsonObject args, Handler<AsyncResult<JsonMessage>> resultHandler) {
+  public String execute(JsonObject data, Handler<AsyncResult<JsonMessage>> resultHandler) {
     executed = true;
-    return doExecute(args, null, resultHandler);
+    return super.execute(data, resultHandler);
   }
 
   @Override
-  public String execute(JsonObject args, String tag, Handler<AsyncResult<JsonMessage>> resultHandler) {
+  public String execute(JsonObject data, String tag, Handler<AsyncResult<JsonMessage>> resultHandler) {
     executed = true;
-    return doExecute(args, tag, resultHandler);
+    return super.execute(data, tag, resultHandler);
   }
 
 }

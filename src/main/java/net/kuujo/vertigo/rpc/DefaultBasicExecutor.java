@@ -16,33 +16,19 @@
 package net.kuujo.vertigo.rpc;
 
 import net.kuujo.vertigo.context.InstanceContext;
-import net.kuujo.vertigo.message.JsonMessage;
 
-import org.vertx.java.core.AsyncResult;
-import org.vertx.java.core.Handler;
 import org.vertx.java.core.Vertx;
-import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.platform.Container;
 
 /**
- * A default basic executor implementation.
+ * A default {@link BasicExecutor} implementation.
  *
  * @author Jordan Halterman
  */
 public class DefaultBasicExecutor extends AbstractExecutor<BasicExecutor> implements BasicExecutor {
 
-  public DefaultBasicExecutor(Vertx vertx, Container container, InstanceContext context) {
+  protected DefaultBasicExecutor(Vertx vertx, Container container, InstanceContext context) {
     super(vertx, container, context);
-  }
-
-  @Override
-  public String execute(JsonObject args, Handler<AsyncResult<JsonMessage>> resultHandler) {
-    return doExecute(args, null, resultHandler);
-  }
-
-  @Override
-  public String execute(JsonObject args, String tag, Handler<AsyncResult<JsonMessage>> resultHandler) {
-    return doExecute(args, tag, resultHandler);
   }
 
 }

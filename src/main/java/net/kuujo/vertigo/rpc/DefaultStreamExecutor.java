@@ -18,75 +18,65 @@ package net.kuujo.vertigo.rpc;
 import net.kuujo.vertigo.context.InstanceContext;
 import net.kuujo.vertigo.message.JsonMessage;
 
-import org.vertx.java.core.AsyncResult;
+import org.vertx.java.core.Future;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.Vertx;
-import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.platform.Container;
 
 /**
- * A default stream executor implementation.
+ * A default {@link StreamExecutor} implementation.
  *
  * @author Jordan Halterman
  */
 public class DefaultStreamExecutor extends AbstractExecutor<StreamExecutor> implements StreamExecutor {
-  private Handler<Void> fullHandler;
   private Handler<Void> drainHandler;
   private boolean paused;
 
-  public DefaultStreamExecutor(Vertx vertx, Container container, InstanceContext context) {
+  protected DefaultStreamExecutor(Vertx vertx, Container container, InstanceContext context) {
     super(vertx, container, context);
   }
 
   @Override
-  public boolean queueFull() {
-    return paused;
-  }
-
-  @Override
-  public StreamExecutor fullHandler(Handler<Void> handler) {
-    fullHandler = handler;
+  public StreamExecutor drainHandler(Handler<Void> drainHandler) {
+    this.drainHandler = drainHandler;
     return this;
-  }
-
-  @Override
-  public StreamExecutor drainHandler(Handler<Void> handler) {
-    drainHandler = handler;
-    return this;
-  }
-
-  @Override
-  public String execute(JsonObject args, Handler<AsyncResult<JsonMessage>> resultHandler) {
-    String id = doExecute(args, null, resultHandler);
-    checkPause();
-    return id;
-  }
-
-  @Override
-  public String execute(JsonObject args, String tag, Handler<AsyncResult<JsonMessage>> resultHandler) {
-    String id = doExecute(args, tag, resultHandler);
-    checkPause();
-    return id;
   }
 
   /**
-   * Checks the current stream pause status.
+   * Executes a message.
+   */
+  protected String doExecute(JsonMessage message, Future<JsonMessage> resultFuture) {
+    String returnValue = super.doExecute(message, resultFuture);
+    if (queueFull()) {
+      paused = true;
+    }
+    return returnValue;
+  }
+
+  /**
+   * Called when a message has been acked.
+   */
+  protected void doAck(JsonMessage message) {
+    super.doAck(message);
+    checkPause();
+  }
+
+  /**
+   * Called when a message has been failed.
+   */
+  protected void doFail(JsonMessage message) {
+    super.doFail(message);
+    checkPause();
+  }
+
+  /**
+   * Checks whether the executor should be unpaused.
    */
   private void checkPause() {
-    if (paused) {
-      if (queue.size() < queue.getMaxQueueSize() * .75) {
-        paused = false;
-        if (drainHandler != null) {
-          drainHandler.handle(null);
-        }
-      }
-    }
-    else {
-      if (queue.size() >= queue.getMaxQueueSize()) {
-        paused = true;
-        if (fullHandler != null) {
-          fullHandler.handle(null);
-        }
+    if (paused && !queueFull()) {
+      paused = false;
+      if (drainHandler != null) {
+        drainHandler.handle(null);
       }
     }
   }

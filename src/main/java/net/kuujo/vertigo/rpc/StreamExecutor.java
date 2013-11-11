@@ -30,18 +30,6 @@ import org.vertx.java.core.streams.WriteStream;
 public interface StreamExecutor extends Executor<StreamExecutor> {
 
   /**
-   * Sets a full handler on the executor.
-   *
-   * The full handler will be called when the execute queue becomes full.
-   *
-   * @param handler
-   *   A handler to be invoked when the execute queue is full.
-   * @return
-   *   The called executor instance.
-   */
-  StreamExecutor fullHandler(Handler<Void> handler);
-
-  /**
    * Sets a drain handler on the executor.
    *
    * The drain handler will be called when the execute queue is available to

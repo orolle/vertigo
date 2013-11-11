@@ -18,9 +18,6 @@ package net.kuujo.vertigo.rpc;
 /**
  * A basic executor.
  *
- * The basic executor implements the base {@link Executor} interface. Users should
- * be careful not to overflow the execute queue when using a basic executor.
- *
  * @author Jordan Halterman
  */
 public interface BasicExecutor extends Executor<BasicExecutor> {

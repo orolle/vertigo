@@ -15,12 +15,12 @@
  */
 package net.kuujo.vertigo.rpc;
 
-import net.kuujo.vertigo.component.Component;
-import net.kuujo.vertigo.message.JsonMessage;
-
 import org.vertx.java.core.AsyncResult;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.json.JsonObject;
+
+import net.kuujo.vertigo.component.Component;
+import net.kuujo.vertigo.message.JsonMessage;
 
 /**
  * A network executor.
@@ -34,22 +34,40 @@ import org.vertx.java.core.json.JsonObject;
 public interface Executor<T extends Executor<T>> extends Component<T> {
 
   /**
-   * Sets the execution reply timeout.
+   * Sets auto retry on the executor.
    *
-   * @param timeout
-   *   An execution reply timeout.
+   * @param autoRetry
+   *   Indicates whether to automatically retry executing failed/timed out messsages.
    * @return
    *   The called executor instance.
    */
-  T setReplyTimeout(long timeout);
+  T setAutoRetry(boolean autoRetry);
 
   /**
-   * Gets the execution reply timeout.
+   * Gets auto retry for the executor.
    *
    * @return
-   *  An execution reply timeout.
+   *   Indicates whether the executor will automatically retry executing failed messages.
    */
-  long getReplyTimeout();
+  boolean isAutoRetry();
+
+  /**
+   * Sets the execution result timeout.
+   *
+   * @param timeout
+   *   An execution result timeout.
+   * @return
+   *   The called executor instance.
+   */
+  T setResultTimeout(long timeout);
+
+  /**
+   * Gets the execution result timeout.
+   *
+   * @return
+   *  An execution result timeout.
+   */
+  long getResultTimeout();
 
   /**
    * Sets the maximum execution queue size.
@@ -80,8 +98,8 @@ public interface Executor<T extends Executor<T>> extends Component<T> {
   /**
    * Executes the network.
    *
-   * @param args
-   *   Execution arguments.
+   * @param data
+   *   Execution data.
    * @param resultHandler
    *   An asynchronous result handler to be invoke with the execution result.
    * @return
@@ -92,8 +110,8 @@ public interface Executor<T extends Executor<T>> extends Component<T> {
   /**
    * Executes the network.
    *
-   * @param args
-   *   Execution arguments.
+   * @param data
+   *   Execution data.
    * @param tag
    *   A tag to apply to the arguments.
    * @param resultHandler
