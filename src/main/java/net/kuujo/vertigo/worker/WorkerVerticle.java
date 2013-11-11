@@ -34,7 +34,7 @@ import org.vertx.java.platform.Verticle;
  */
 public abstract class WorkerVerticle extends Verticle {
   private Vertigo vertigo;
-  private BasicWorker worker;
+  protected BasicWorker worker;
 
   private Handler<JsonMessage> messageHandler = new Handler<JsonMessage>() {
     @Override
