@@ -19,7 +19,6 @@ import net.kuujo.vertigo.message.JsonMessage;
 
 import org.vertx.java.core.AsyncResult;
 import org.vertx.java.core.Handler;
-import org.vertx.java.core.json.JsonObject;
 
 /**
  * An output collector.
@@ -44,72 +43,15 @@ public interface OutputCollector {
   String getAddress();
 
   /**
-   * Emits a new message to all output channels.
+   * Emits a message to all output channels.
    *
-   * @param body
-   *   The message body.
+   * @param message
+   *   The message to emit.
    * @return
    *   The unique output message correlation identifier. This identifier can be
    *   used to correlate new messages with the emitted message.
    */
-  String emit(JsonObject body);
-
-  /**
-   * Emits a new message to all output channels.
-   *
-   * @param body
-   *   The message body.
-   * @param tag
-   *   A tag to apply to the message.
-   * @return
-   *   The unique output message correlation identifier. This identifier can be
-   *   used to correlate new messages with the emitted message.
-   */
-  String emit(JsonObject body, String tag);
-
-  /**
-   * Emits a child message to all output channels.
-   *
-   * Emitting data as the child of an existing message creates a new node in the
-   * parent message's message tree. When the new message is emitted, the auditor
-   * assigned to the parent message will be notified of the change, and the new
-   * message will be tracked as a child. This means that the parent message will
-   * not be considered fully processed until all of its children have been acked
-   * and are considered fully processed (their children are acked... etc). It is
-   * strongly recommended that users use this API whenever possible.
-   *
-   * @param body
-   *   The message body.
-   * @param parent
-   *   The parent message of the data.
-   * @return
-   *   The unique child message correlation identifier. This identifier can be
-   *   used to correlate new messages with the emitted message.
-   */
-  String emit(JsonObject body, JsonMessage parent);
-
-  /**
-   * Emits a child message to all output channels.
-   *
-   * Emitting data as the child of an existing message creates a new node in the
-   * parent message's message tree. When the new message is emitted, the auditor
-   * assigned to the parent message will be notified of the change, and the new
-   * message will be tracked as a child. This means that the parent message will
-   * not be considered fully processed until all of its children have been acked
-   * and are considered fully processed (their children are acked... etc). It is
-   * strongly recommended that users use this API whenever possible.
-   *
-   * @param body
-   *   The message body.
-   * @param tag
-   *   A tag to apply to output data.
-   * @param parent
-   *   The parent message of the data.
-   * @return
-   *   The unique child message correlation identifier. This identifier can be
-   *   used to correlate new messages with the emitted message.
-   */
-  String emit(JsonObject body, String tag, JsonMessage parent);
+  String emit(JsonMessage message);
 
   /**
    * Sets an ack handler on the output collector.
@@ -118,11 +60,11 @@ public interface OutputCollector {
    * that was acked once a message completes processing.
    *
    * @param handler
-   *   A handler to be invoked when an ack message is received.
+   *   A handler to be invoked when an ack message is received. 
    * @return
    *   The called output collector instance.
    */
-  OutputCollector ackHandler(Handler<String> handler);
+  OutputCollector ackHandler(Handler<JsonMessage> handler);
 
   /**
    * Sets a fail handler on the output collector.
@@ -136,7 +78,7 @@ public interface OutputCollector {
    * @return
    *   The called output collector instance.
    */
-  OutputCollector failHandler(Handler<String> handler);
+  OutputCollector failHandler(Handler<JsonMessage> handler);
 
   /**
    * Starts the output collector.

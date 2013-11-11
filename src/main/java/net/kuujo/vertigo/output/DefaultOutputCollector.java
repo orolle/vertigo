@@ -16,12 +16,9 @@
 package net.kuujo.vertigo.output;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 import net.kuujo.vertigo.context.InstanceContext;
-import net.kuujo.vertigo.message.DefaultJsonMessage;
 import net.kuujo.vertigo.message.JsonMessage;
 import net.kuujo.vertigo.serializer.SerializationException;
 import net.kuujo.vertigo.serializer.Serializer;
@@ -47,13 +44,12 @@ public class DefaultOutputCollector implements OutputCollector {
   private final Logger logger;
   private final EventBus eventBus;
   private final InstanceContext context;
-  private final List<String> auditors;
-  private Handler<String> ackHandler;
-  private Handler<String> failHandler;
-  private Random random = new Random();
+  private Handler<JsonMessage> ackHandler;
+  private Handler<JsonMessage> failHandler;
   private Map<String, Channel> channels = new HashMap<>();
   private Map<String, Long> connectionTimers = new HashMap<>();
   private static final long LISTEN_INTERVAL = 15000;
+  private Map<String, JsonMessage> messages = new HashMap<String, JsonMessage>();
 
   public DefaultOutputCollector(Vertx vertx, Container container, InstanceContext context) {
     this(vertx, container, vertx.eventBus(), context);
@@ -64,7 +60,6 @@ public class DefaultOutputCollector implements OutputCollector {
     this.logger = container.logger();
     this.eventBus = eventBus;
     this.context = context;
-    auditors = context.getComponent().getNetwork().getAuditors();
   }
 
   private Handler<Message<JsonObject>> handler = new Handler<Message<JsonObject>>() {
@@ -157,7 +152,7 @@ public class DefaultOutputCollector implements OutputCollector {
   }
 
   @Override
-  public OutputCollector ackHandler(Handler<String> handler) {
+  public OutputCollector ackHandler(Handler<JsonMessage> handler) {
     this.ackHandler = handler;
     return this;
   }
@@ -165,14 +160,14 @@ public class DefaultOutputCollector implements OutputCollector {
   private void doAck(Message<JsonObject> message) {
     if (ackHandler != null) {
       String id = message.body().getString("id");
-      if (id != null) {
-        ackHandler.handle(id);
+      if (id != null && messages.containsKey(id)) {
+        ackHandler.handle(messages.remove(id));
       }
     }
   }
 
   @Override
-  public OutputCollector failHandler(Handler<String> handler) {
+  public OutputCollector failHandler(Handler<JsonMessage> handler) {
     this.failHandler = handler;
     return this;
   }
@@ -180,58 +175,25 @@ public class DefaultOutputCollector implements OutputCollector {
   private void doFail(Message<JsonObject> message) {
     if (failHandler != null) {
       String id = message.body().getString("id");
-      if (id != null) {
-        failHandler.handle(id);
+      if (id != null && messages.containsKey(id)) {
+        failHandler.handle(messages.remove(id));
       }
     }
   }
 
   @Override
-  public String emit(JsonObject body) {
-    return emitNew(DefaultJsonMessage.create(context.getComponent().getAddress(), body, selectRandomAuditor()));
-  }
-
-  @Override
-  public String emit(JsonObject body, String tag) {
-    return emitNew(DefaultJsonMessage.create(context.getComponent().getAddress(), body, tag, selectRandomAuditor()));
-  }
-
-  @Override
-  public String emit(JsonObject body, JsonMessage parent) {
-    return emitChild(parent.createChild(body));
-  }
-
-  @Override
-  public String emit(JsonObject body, String tag, JsonMessage parent) {
-    return emitChild(parent.createChild(body, tag));
-  }
-
-  /**
-   * Emits a new message.
-   */
-  private String emitNew(JsonMessage message) {
-    eventBus.send(message.auditor(), new JsonObject().putString("action", "create").putString("id", message.id()));
-    for (Channel channel : channels.values()) {
-      channel.publish(message.createChild());
+  public String emit(JsonMessage message) {
+    String id = message.id();
+    JsonMessage emit = message.createChild();
+    String parent = message.parent();
+    if (parent == null && message.auditor() != null) {
+      eventBus.send(message.auditor(), new JsonObject().putString("action", "create").putString("id", id));
     }
-    return message.id();
-  }
-
-  /**
-   * Emits a child message.
-   */
-  private String emitChild(JsonMessage message) {
     for (Channel channel : channels.values()) {
-      channel.publish(message.copy());
+      channel.publish(emit.copy());
     }
-    return message.parent();
-  }
-
-  /**
-   * Returns a random auditor address.
-   */
-  private String selectRandomAuditor() {
-    return auditors.get(random.nextInt(auditors.size()));
+    messages.put(id, message);
+    return id;
   }
 
   @Override
