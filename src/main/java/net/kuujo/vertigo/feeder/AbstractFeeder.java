@@ -18,70 +18,46 @@ package net.kuujo.vertigo.feeder;
 import net.kuujo.vertigo.component.ComponentBase;
 import net.kuujo.vertigo.context.InstanceContext;
 
-import org.vertx.java.core.AsyncResult;
-import org.vertx.java.core.Future;
-import org.vertx.java.core.Handler;
 import org.vertx.java.core.Vertx;
-import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.platform.Container;
 
 /**
- * An abstract feeder implementation.
+ * An abstract feeder.
  *
  * @author Jordan Halterman
+ * @param <T> The feeder type
  */
 public abstract class AbstractFeeder<T extends Feeder<T>> extends ComponentBase<T> implements Feeder<T> {
-  protected FeedQueue queue;
+  private static final long DEFAULT_MAX_QUEUE_SIZE = 1000;
+  protected long maxQueueSize = DEFAULT_MAX_QUEUE_SIZE;
+  protected long queueSize;
   protected boolean autoRetry;
-  protected int retryAttempts = -1;
 
   protected AbstractFeeder(Vertx vertx, Container container, InstanceContext context) {
     super(vertx, container, context);
-    queue = new BasicFeedQueue();
-  }
-
-  private Handler<String> ackHandler = new Handler<String>() {
-    @Override
-    public void handle(String id) {
-      queue.ack(id);
-    }
-  };
-
-  private Handler<String> failHandler = new Handler<String>() {
-    @Override
-    public void handle(String id) {
-      queue.fail(id);
-    }
-  };
-
-  @Override
-  public T start(Handler<AsyncResult<T>> doneHandler) {
-    output.ackHandler(ackHandler);
-    output.failHandler(failHandler);
-    return super.start(doneHandler);
   }
 
   @Override
   @SuppressWarnings("unchecked")
   public T setMaxQueueSize(long maxSize) {
-    queue.setMaxQueueSize(maxSize);
+    maxQueueSize = maxSize;
     return (T) this;
   }
 
   @Override
   public long getMaxQueueSize() {
-    return queue.getMaxQueueSize();
+    return maxQueueSize;
   }
 
   @Override
   public boolean queueFull() {
-    return queue.full();
+    return queueSize >= maxQueueSize;
   }
 
   @Override
   @SuppressWarnings("unchecked")
-  public T setAutoRetry(boolean retry) {
-    autoRetry = retry;
+  public T setAutoRetry(boolean autoRetry) {
+    this.autoRetry = autoRetry;
     return (T) this;
   }
 
@@ -90,47 +66,20 @@ public abstract class AbstractFeeder<T extends Feeder<T>> extends ComponentBase<
     return autoRetry;
   }
 
-  @Override
-  @SuppressWarnings("unchecked")
-  public T setRetryAttempts(int attempts) {
-    retryAttempts = attempts;
-    return (T) this;
-  }
-
-  @Override
-  public int getRetryAttempts() {
-    return retryAttempts;
+  /**
+   * Enqueues a message. Subclasses may override this method to provide alternative behavior.
+   */
+  protected String enqueue(String messageId) {
+    queueSize++;
+    return messageId;
   }
 
   /**
-   * Executes a feed.
+   * Dequeues a message. Subclasses may override this method to provide alternative behavior.
    */
-  protected String doFeed(final JsonObject data, final String tag, final int attempts, final Future<Void> future) {
-    final String id;
-    if (tag != null) {
-      id = output.emit(data, tag);
-    }
-    else {
-      id = output.emit(data);
-    }
-
-    queue.enqueue(id, new Handler<AsyncResult<Void>>() {
-      @Override
-      public void handle(AsyncResult<Void> result) {
-        if (result.failed()) {
-          if (autoRetry && (retryAttempts == -1 || attempts < retryAttempts)) {
-            doFeed(data, tag, attempts+1, future);
-          }
-          else if (future != null) {
-            future.setFailure(result.cause());
-          }
-        }
-        else if (future != null) {
-          future.setResult(result.result());
-        }
-      }
-    });
-    return id;
+  protected String dequeue(String messageId) {
+    queueSize--;
+    return messageId;
   }
 
 }

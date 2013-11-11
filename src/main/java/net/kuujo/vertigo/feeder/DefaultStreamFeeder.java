@@ -15,9 +15,15 @@
  */
 package net.kuujo.vertigo.feeder;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import net.kuujo.vertigo.context.InstanceContext;
+import net.kuujo.vertigo.message.JsonMessage;
+import net.kuujo.vertigo.runtime.FailureException;
 
 import org.vertx.java.core.AsyncResult;
+import org.vertx.java.core.Future;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.Vertx;
 import org.vertx.java.core.impl.DefaultFutureResult;
@@ -25,17 +31,103 @@ import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.platform.Container;
 
 /**
- * A default stream feeder implementation.
+ * A default {@link StreamFeeder} implementation.
  *
  * @author Jordan Halterman
  */
 public class DefaultStreamFeeder extends AbstractFeeder<StreamFeeder> implements StreamFeeder {
-  private Handler<Void> fullHandler;
   private Handler<Void> drainHandler;
   private boolean paused;
+  private Map<String, Future<Void>> ackFutures = new HashMap<String, Future<Void>>();
+
+  private Handler<JsonMessage> ackHandler = new Handler<JsonMessage>() {
+    @Override
+    public void handle(JsonMessage message) {
+      if (ackFutures.containsKey(message.id())) {
+        // When dealing with asynchronous ack handlers, we first remove the message
+        // from the queue and invoke the handler before checking the drain handler.
+        // This is because we need to always guarantee that the feed queue is not
+        // full when an ack handler is called to allow it to re-emit the message.
+        DefaultStreamFeeder.super.dequeue(message.id());
+        ackFutures.remove(message.id()).setResult(null);
+        checkPause();
+      }
+      else {
+        dequeue(message.id());
+      }
+    }
+  };
+
+  private Handler<JsonMessage> failHandler = new Handler<JsonMessage>() {
+    @Override
+    public void handle(JsonMessage message) {
+      if (autoRetry) {
+        output.emit(message);
+      }
+      else if (ackFutures.containsKey(message.id())) {
+        // When dealing with asynchronous ack handlers, we first remove the message
+        // from the queue and invoke the handler before checking the drain handler.
+        // This is because we need to always guarantee that the feed queue is not
+        // full when an ack handler is called to allow it to re-emit the message.
+        DefaultStreamFeeder.super.dequeue(message.id());
+        ackFutures.remove(message.id()).setFailure(new FailureException("Processing failed."));
+        checkPause();
+      }
+      else {
+        dequeue(message.id());
+      }
+    }
+  };
 
   public DefaultStreamFeeder(Vertx vertx, Container container, InstanceContext context) {
     super(vertx, container, context);
+  }
+
+  @Override
+  public StreamFeeder start(Handler<AsyncResult<StreamFeeder>> doneHandler) {
+    final Future<StreamFeeder> future = new DefaultFutureResult<StreamFeeder>().setHandler(doneHandler);
+    return super.start(new Handler<AsyncResult<StreamFeeder>>() {
+      @Override
+      public void handle(AsyncResult<StreamFeeder> result) {
+        if (result.failed()) {
+          future.setFailure(result.cause());
+        }
+        else {
+          output.ackHandler(ackHandler);
+          output.failHandler(failHandler);
+          future.setResult(result.result());
+        }
+      }
+    });
+  }
+
+  @Override
+  protected String enqueue(String messageId) {
+    super.enqueue(messageId);
+    checkPause();
+    return messageId;
+  }
+
+  @Override
+  protected String dequeue(String messageId) {
+    super.dequeue(messageId);
+    checkPause();
+    return messageId;
+  }
+
+  /**
+   * Checks whether the feeder can be unpaused and the drain handler called.
+   */
+  private void checkPause() {
+    if (queueFull()) {
+      paused = true;
+    }
+    else if (paused) {
+      paused = false;
+      if (drainHandler != null) {
+        drainHandler.handle(null);
+      }
+    }
   }
 
   @Override
@@ -44,85 +136,33 @@ public class DefaultStreamFeeder extends AbstractFeeder<StreamFeeder> implements
   }
 
   @Override
-  public StreamFeeder fullHandler(Handler<Void> handler) {
-    fullHandler = handler;
-    return this;
-  }
-
-  @Override
-  public StreamFeeder drainHandler(Handler<Void> handler) {
-    drainHandler = handler;
+  public StreamFeeder drainHandler(Handler<Void> drainHandler) {
+    this.drainHandler = drainHandler;
     return this;
   }
 
   @Override
   public String emit(JsonObject data) {
-    String id = doFeed(data, null, 0, new DefaultFutureResult<Void>().setHandler(createAckHandler(null)));
-    checkPause();
-    return id;
+    return enqueue(output.emit(createMessage(data)));
   }
 
   @Override
   public String emit(JsonObject data, String tag) {
-    String id = doFeed(data, tag, 0, new DefaultFutureResult<Void>().setHandler(createAckHandler(null)));
-    checkPause();
-    return id;
+    return enqueue(output.emit(createMessage(data, tag)));
   }
 
   @Override
   public String emit(JsonObject data, Handler<AsyncResult<Void>> ackHandler) {
-    String id = doFeed(data, null, 0, new DefaultFutureResult<Void>().setHandler(createAckHandler(ackHandler)));
-    checkPause();
+    String id = enqueue(output.emit(createMessage(data)));
+    ackFutures.put(id, new DefaultFutureResult<Void>().setHandler(ackHandler));
     return id;
   }
 
   @Override
   public String emit(JsonObject data, String tag, Handler<AsyncResult<Void>> ackHandler) {
-    String id = doFeed(data, tag, 0, new DefaultFutureResult<Void>().setHandler(createAckHandler(ackHandler)));
-    checkPause();
+    String id = enqueue(output.emit(createMessage(data, tag)));
+    ackFutures.put(id, new DefaultFutureResult<Void>().setHandler(ackHandler));
     return id;
-  }
-
-  /**
-   * Creates a message ack handler.
-   */
-  private Handler<AsyncResult<Void>> createAckHandler(final Handler<AsyncResult<Void>> ackHandler) {
-    return new Handler<AsyncResult<Void>>() {
-      @Override
-      public void handle(AsyncResult<Void> result) {
-        checkPause();
-        if (ackHandler != null) {
-          if (result.failed()) {
-            new DefaultFutureResult<Void>().setHandler(ackHandler).setFailure(result.cause());
-          }
-          else {
-            new DefaultFutureResult<Void>().setHandler(ackHandler).setResult(result.result());
-          }
-        }
-      }
-    };
-  }
-
-  /**
-   * Checks the current stream pause status.
-   */
-  private void checkPause() {
-    if (paused) {
-      if (queue.size() < queue.getMaxQueueSize() * .75) {
-        paused = false;
-        if (drainHandler != null) {
-          drainHandler.handle(null);
-        }
-      }
-    }
-    else {
-      if (queue.size() >= queue.getMaxQueueSize()) {
-        paused = true;
-        if (fullHandler != null) {
-          fullHandler.handle(null);
-        }
-      }
-    }
   }
 
 }

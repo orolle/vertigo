@@ -15,107 +15,63 @@
  */
 package net.kuujo.vertigo.feeder;
 
-import org.vertx.java.core.AsyncResult;
-import org.vertx.java.core.Handler;
-import org.vertx.java.core.json.JsonObject;
-
 import net.kuujo.vertigo.component.Component;
+
+import org.vertx.java.core.json.JsonObject;
 
 /**
  * A message feeder.
  *
- * Feeders are tasked with feeding messages from a data source to a network.
- * When data is emitted from a feeder, the data will be transformed into a
- * message and tagged with a unique identifier. This identifier is used to track
- * the message and its descendents throughout the network. Once the message and
- * all of its descendants have been fully processed (acked), the feeder may
- * optionally be notified via asynchronous result handlers.
- *
  * @author Jordan Halterman
- *
  * @param <T> The feeder type
  */
 public interface Feeder<T extends Feeder<T>> extends Component<T> {
 
   /**
-   * Sets the maximum feed queue size.
-   *
-   * The feeder uses an underlying queue to track which messages have been emitted
-   * from the component but not yet acked. This indicates how many messages may
-   * reside in the queue (in memory) at any given time.
+   * Sets the maximum number of messages that can be pending in the network
+   * from this feeder.
    *
    * @param maxSize
-   *   The maximum queue size allowed for the feeder.
+   *   The maximum feed queue size.
    * @return
    *   The called feeder instance.
    */
-  T setMaxQueueSize(long maxSize);
+  public T setMaxQueueSize(long maxSize);
 
   /**
-   * Gets the maximum feed queue size.
-   *
-   * The feeder uses an underlying queue to track which messages have been emitted
-   * from the component but not yet acked. This indicates how many messages may
-   * reside in the queue (in memory) at any given time.
+   * Gets the maximum number of messages that can be pending in the network
+   * from this feeder.
    *
    * @return
-   *   The maximum queue size allowed for the feeder.
+   *   The called feeder instance.
    */
-  long getMaxQueueSize();
+  public long getMaxQueueSize();
 
   /**
    * Indicates whether the feed queue is full.
    *
-   * Depending on the feeder implementation, this method may be used to check
-   * whether the feed queue is full prior to feeding additional data to a network.
-   *
    * @return
-   *   A boolean indicating whether the feed queue is full.
+   *   Indicates whether the feed queue is full.
    */
-  boolean queueFull();
+  public boolean queueFull();
 
   /**
-   * Sets the feeder auto-retry option.
+   * Sets auto retry on the feeder.
    *
-   * If this option is enabled, the feeder will automatically retry sending
-   * failed or timed out messages.
-   *
-   * @param retry
-   *   Indicates whether to automatically retry emitting failed data.
+   * @param autoRetry
+   *   Indicates whether to automatically retry sending failed messages.
    * @return
    *   The called feeder instance.
    */
-  T setAutoRetry(boolean retry);
+  public T setAutoRetry(boolean autoRetry);
 
   /**
-   * Gets the feeder auto-retry option.
-   *
-   * If this option is enabled, the feeder will automatically retry sending
-   * failed or timed out messages.
+   * Gets the auto retry setting for the feeder.
    *
    * @return
-   *   Indicates whether the feeder with automatically retry emitting failed data.
+   *   Indicates whether the feeder will automatically retry sending failed messages.
    */
-  boolean isAutoRetry();
-
-  /**
-   * Sets the number of automatic retry attempts for a single failed message.
-   *
-   * @param attempts
-   *   The number of retry attempts allowed. If attempts is -1 then an infinite
-   *   number of retry attempts will be allowed.
-   * @return
-   *   The called feeder instance.
-   */
-  T setRetryAttempts(int attempts);
-
-  /**
-   * Gets the number of automatic retry attempts.
-   *
-   * @return
-   *   Indicates the number of retry attempts allowed for the feeder.
-   */
-  int getRetryAttempts();
+  public boolean isAutoRetry();
 
   /**
    * Emits data from the feeder.
@@ -123,46 +79,20 @@ public interface Feeder<T extends Feeder<T>> extends Component<T> {
    * @param data
    *   The data to emit.
    * @return
-   *   The emitted message identifier.
+   *   The unique message identifier for the emitted message.
    */
-  String emit(JsonObject data);
+  public String emit(JsonObject data);
 
   /**
    * Emits data from the feeder.
    *
    * @param data
-   *   The data to feed.
-   * @param tag
-   *   A tag to apply to the data.
-   * @return
-   *   The emitted message identifier.
-   */
-  String emit(JsonObject data, String tag);
-
-  /**
-   * Emits data to from the feeder with an ack handler.
-   *
-   * @param data
-   *   The data to emit.
-   * @param ackHandler
-   *   An asynchronous result handler to be invoke with the ack result.
-   * @return
-   *   The emitted message identifier.
-   */
-  String emit(JsonObject data, Handler<AsyncResult<Void>> ackHandler);
-
-  /**
-   * Emits data from the feeder with an ack handler.
-   *
-   * @param data
    *   The data to emit.
    * @param tag
-   *   A tag to apply to the data.
-   * @param ackHandler
-   *   An asynchronous result handler to be invoke with the ack result.
+   *   A tag to apply to the emitted message.
    * @return
-   *   The emitted message identifier.
+   *   The unique message identifier for the emitted message.
    */
-  String emit(JsonObject data, String tag, Handler<AsyncResult<Void>> ackHandler);
+  public String emit(JsonObject data, String tag);
 
 }

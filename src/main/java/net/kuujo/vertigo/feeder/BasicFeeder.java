@@ -16,10 +16,10 @@
 package net.kuujo.vertigo.feeder;
 
 /**
- * A basic feeder.
+ * A basic message feeder.
  *
- * The basic feeder implements the base {@link Feeder} interface. Users should
- * be careful not to overflow the feed queue when using a basic feeder.
+ * The basic feeder implements only the basic methods of the feeder interface.
+ * This feeder should not be used if success/failure feedback is required.
  *
  * @author Jordan Halterman
  */

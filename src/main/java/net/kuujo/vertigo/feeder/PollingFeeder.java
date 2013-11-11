@@ -53,19 +53,37 @@ public interface PollingFeeder extends Feeder<PollingFeeder> {
   long getFeedDelay();
 
   /**
-   * Sets a feed handler.
+   * Registers a feed handler on the feeder. The feed handler is called each time
+   * a new message should be emitted from the feeder. This allows the feeder
+   * implementation to control the flow of data emanating from the feeder.
    *
-   * The feed handler will be periodically polled for new data. Each time the
-   * feed handler is polled only a single message should be emitted. This allows
-   * the feeder to maintain control over the flow of data. If the feed handler
-   * is called but fails to feed any new messages to the network, the feeder
-   * will reschedule the next call to the handler for a period in the near future.
-   *
-   * @param handler
-   *   A handler to be invoked for feeding data to the network.
+   * @param feedHandler
+   *   The feed handler.
    * @return
    *   The called feeder instance.
    */
-  PollingFeeder feedHandler(Handler<PollingFeeder> handler);
+  public PollingFeeder feedHandler(Handler<PollingFeeder> feedHandler);
+
+  /**
+   * Sets an ack handler on the feeder.
+   *
+   * @param ackHandler
+   *   A handler to be called when a message is acked. The handler will be called
+   *   with the unique message identifier for the message that was acked.
+   * @return
+   *   The called feeder instance.
+   */
+  public PollingFeeder ackHandler(Handler<String> ackHandler);
+
+  /**
+   * Sets a fail handler on the feeder.
+   *
+   * @param failHandler
+   *   A handler to be called when a message is failed. The handler will be called
+   *   with the unique message identifier for the message that was failed.
+   * @return
+   *   The called feeder instance.
+   */
+  public PollingFeeder failHandler(Handler<String> failHandler);
 
 }
