@@ -17,8 +17,11 @@ package net.kuujo.vertigo.component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import net.kuujo.vertigo.VertigoException;
+import net.kuujo.vertigo.message.JsonMessage;
+import net.kuujo.vertigo.message.JsonMessageBuilder;
 import net.kuujo.vertigo.output.DefaultOutputCollector;
 import net.kuujo.vertigo.output.OutputCollector;
 import net.kuujo.vertigo.context.InstanceContext;
@@ -58,6 +61,8 @@ public abstract class ComponentBase<T> implements Component<T> {
   protected final HeartbeatEmitter heartbeat;
   protected final InputCollector input;
   protected final OutputCollector output;
+  private Random random = new Random();
+  protected final String componentAddress;
 
   protected ComponentBase(Vertx vertx, Container container, InstanceContext context) {
     this.vertx = vertx;
@@ -78,6 +83,7 @@ public abstract class ComponentBase<T> implements Component<T> {
     heartbeat = new DefaultHeartbeatEmitter(vertx);
     input = new DefaultInputCollector(vertx, container, context);
     output = new DefaultOutputCollector(vertx, container, context);
+    componentAddress = context.getComponent().getAddress();
   }
 
   @Override
@@ -232,6 +238,33 @@ public abstract class ComponentBase<T> implements Component<T> {
       }
     });
     return (T) this;
+  }
+
+  /**
+   * Creates a new JSON message.
+   */
+  protected JsonMessage createMessage(JsonObject data) {
+    return JsonMessageBuilder.create(data)
+      .setSource(componentAddress)
+      .setAuditor(selectRandomAuditor())
+      .toMessage();
+  }
+
+  /**
+   * Creates a new JSON message.
+   */
+  protected JsonMessage createMessage(JsonObject data, String tag) {
+    return JsonMessageBuilder.create(data, tag)
+      .setSource(componentAddress)
+      .setAuditor(selectRandomAuditor())
+      .toMessage();
+  }
+
+  /**
+   * Selects a random auditor address.
+   */
+  private String selectRandomAuditor() {
+    return auditors.get(random.nextInt(auditors.size()));
   }
 
 }
